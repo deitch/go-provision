@@ -331,7 +331,7 @@ fi
 /usr/sbin/watchdog -c $TMPDIR/watchdogclient.conf -F -s &
 
 if [ ! \( -f $CONFIGDIR/device.cert.pem -a -f $CONFIGDIR/device.key.pem \) ]; then
-    echo $(date -Ins -u) "Generating a device key pair and self-signed cert (using TPM/TEE if available) at" `date`
+    echo $(date -Ins -u) "Generating a device key pair and self-signed cert (using TPM/TEE if available)"
     $BINDIR/generate-device.sh $CONFIGDIR/device
     SELF_REGISTER=1
 elif [ -f $CONFIGDIR/self-register-failed ]; then
@@ -358,7 +358,7 @@ if [ $SELF_REGISTER = 1 ]; then
     rm -f $TMPDIR/zedrouterconfig.json
 
     touch $CONFIGDIR/self-register-failed
-    echo $(date -Ins -u) "Self-registering our device certificate at " `date`
+    echo $(date -Ins -u) "Self-registering our device certificate"
     if [ ! \( -f $CONFIGDIR/onboard.cert.pem -a -f $CONFIGDIR/onboard.key.pem \) ]; then
 	echo $(date -Ins -u) "Missing onboarding certificate. Giving up"
 	exit 1
@@ -461,14 +461,14 @@ for AGENT in $AGENTS1; do
     $BINDIR/$AGENT -c $CURPART &
 done
 
-#If logmanager is already running we don't have to start it.
+#If logmanager is already running we don't have to strt it.
 pgrep logmanager >/dev/null
 if [ $? != 0 ]; then
     echo $(date -Ins -u) "Starting logmanager"
     $BINDIR/logmanager -c $CURPART &
 fi
 
-echo $(date -Ins -u) "Initial setup done at" `date`
+echo $(date -Ins -u) "Initial setup done"
 
 # Print diag output forever on changes
 $BINDIR/diag -c $CURPART -f >/dev/console 2>&1 &
