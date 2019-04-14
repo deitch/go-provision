@@ -75,7 +75,7 @@ sgdisk --new $NUM_PART:$SEC_START:$SEC_END \
        --typecode=$NUM_PART:$PART_TYPE \
        --change-name=$NUM_PART:'DevicePortConfig' $DEV
 
-SPECIAL=`cgpt find -l DevicePortConfig`
+SPECIAL=$(cgpt find -l DevicePortConfig)
 # XXX or cgpt find -t $PART_TYPE
 if [ -z $SPECIAL ]; then
     echo "Failed to create and label DevicePortConfig"
@@ -91,7 +91,7 @@ rmdir $TMPDIR
 
 # XXX test using
 if [ $TEST = 1 ]; then
-    SPECIAL=`cgpt find -l DevicePortConfig`
+    SPECIAL=$(cgpt find -l DevicePortConfig)
     mount -t vfat $SPECIAL /mnt
     ls /mnt
     df -k /mnt
