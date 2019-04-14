@@ -59,7 +59,7 @@ done
 
 echo "Proceeding to clear $DEV"
 
-PARTS=`lsblk -o NAME -r -n $DEV`
+PARTS=$(lsblk -o NAME -r -n $DEV)
 for p in $PARTS; do
     umount -f /dev/$p
 done

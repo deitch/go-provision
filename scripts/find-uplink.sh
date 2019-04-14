@@ -17,22 +17,22 @@ fi
 LISP_CONFIG=$1
 
 intf=""
-ms=`grep dns-name $LISP_CONFIG | awk '{print $3}' | sort -u`
+ms=$(grep dns-name $LISP_CONFIG | awk '{print $3}' | sort -u)
 for m in $ms; do
     if [ $DEBUG ]; then
 	echo ms $ms
     fi
-    ips=`getent hosts $m | awk '{print $1}' | sort -u`
+    ips=$(getent hosts $m | awk '{print $1}' | sort -u)
     # Could get multiple ips
     for ip in $ips; do
 	if [ $DEBUG ]; then
 	    echo ip $ip
 	fi
-	rt=`ip route get $ip`
+	rt=$(ip route get $ip)
 	if [ $DEBUG ]; then
 	    echo rt $rt
 	fi
-	intf=`echo $rt | sed 's/.* dev \([^ ]*\) .*/\1/'`
+	intf=$(echo $rt | sed 's/.* dev \([^ ]*\) .*/\1/')
 	if [ $DEBUG ]; then
 	    echo intf $intf
 	fi

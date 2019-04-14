@@ -21,8 +21,8 @@ AGENTS="$AGENTS0 $AGENTS1"
 PATH=$BINDIR:$PATH
 
 echo $(date -Ins -u) "Starting device-steps.sh"
-echo $(date -Ins -u) "go-provision version:" `cat $BINDIR/versioninfo`
-echo $(date -Ins -u) "go-provision version.1:" `cat $BINDIR/versioninfo.1`
+echo $(date -Ins -u) "go-provision version:" $(cat $BINDIR/versioninfo)
+echo $(date -Ins -u) "go-provision version.1:" $(cat $BINDIR/versioninfo.1)
 
 MEASURE=0
 while [ $# != 0 ]; do
@@ -40,7 +40,7 @@ done
 
 mkdir -p $TMPDIR
 
-if [ `uname -m` != "x86_64" ]; then
+if [ $(uname -m) != "x86_64" ]; then
     USE_HW_WATCHDOG=1
 fi
 
@@ -97,7 +97,7 @@ done
 # If watchdog was running we restart it in a way where it will
 # no fail due to killing the agents below.
 if [ -f /var/run/watchdog.pid ]; then
-    kill `cat /var/run/watchdog.pid`
+    kill $(cat /var/run/watchdog.pid)
 fi
 # Always run watchdog(8) in case we have a hardware timer to advance
 /usr/sbin/watchdog -c $TMPDIR/watchdogbase.conf -F -s &
@@ -105,7 +105,7 @@ fi
 DIRS="$CONFIGDIR $PERSISTDIR $TMPDIR $CONFIGDIR/DevicePortConfig $TMPDIR/DeviceNetworkConfig/ $TMPDIR/AssignableAdapters"
 
 for d in $DIRS; do
-    d1=`dirname $d`
+    d1=$(dirname $d)
     if [ ! -d $d1 ]; then
 	# XXX echo $(date -Ins -u) "Create $d1"
 	mkdir -p $d1
@@ -122,7 +122,7 @@ echo $(date -Ins -u) "Configuration from factory/install:"
 (cd $CONFIGDIR; ls -l)
 echo
 
-P3=`zboot partdev P3`
+P3=$(zboot partdev P3)
 if [ $? = 0 -a x$P3 != x ]; then
     echo $(date -Ins -u) "Using $P3 for $PERSISTDIR"
     fsck.ext3 -y $P3
@@ -159,7 +159,7 @@ for f in $dir/*.json; do
     cp -p $f $GCDIR
 done
 
-CURPART=`zboot curpart`
+CURPART=$(zboot curpart)
 if [ $? != 0 ]; then
     CURPART="IMGA"
 fi
@@ -227,7 +227,7 @@ fi
 
 # Restart watchdog - just for ledmanager so far
 if [ -f /var/run/watchdog.pid ]; then
-    kill `cat /var/run/watchdog.pid`
+    kill $(cat /var/run/watchdog.pid)
 fi
 /usr/sbin/watchdog -c $TMPDIR/watchdogled.conf -F -s &
 
@@ -237,7 +237,7 @@ mkdir -p $DPCDIR
 # If found it replaces any build override file in /config
 # XXX alternative is to use a designated UUID and -t.
 # cgpt find -t a0ee3715-fcdc-4bd8-9f94-23a62bd53c91
-SPECIAL=`cgpt find -l DevicePortConfig`
+SPECIAL=$(cgpt find -l DevicePortConfig)
 if [ ! -z "$SPECIAL" -a -b "$SPECIAL" ]; then
     echo $(date -Ins -u) "Found USB with DevicePortConfig: $SPECIAL"
     key="usb"
@@ -271,7 +271,7 @@ $BINDIR/nim -c $CURPART &
 
 # Restart watchdog ledmanager and nim
 if [ -f /var/run/watchdog.pid ]; then
-    kill `cat /var/run/watchdog.pid`
+    kill $(cat /var/run/watchdog.pid)
 fi
 /usr/sbin/watchdog -c $TMPDIR/watchdognim.conf -F -s &
 
@@ -282,6 +282,7 @@ $BINDIR/waitforaddr -c $CURPART
 
 # We need to try our best to setup time *before* we generate the certifiacte.
 # Otherwise it may have start date in the future
+# XXX which NTP approach are we using?
 echo $(date -Ins -u) "Check for NTP config"
 if [ -f $CONFIGDIR/ntp-server ]; then
     echo -n "Using "
@@ -291,7 +292,7 @@ if [ -f $CONFIGDIR/ntp-server ]; then
     # Not installed on Ubuntu
     #
     if [ -f /usr/bin/ntpdate ]; then
-	/usr/bin/ntpdate `cat $CONFIGDIR/ntp-server`
+	/usr/bin/ntpdate $(cat $CONFIGDIR/ntp-server)
     elif [ -f /usr/bin/timedatectl ]; then
 	echo $(date -Ins -u) "NTP might already be running. Check"
 	/usr/bin/timedatectl status
@@ -317,16 +318,16 @@ $BINDIR/diag -c $CURPART >/dev/console 2>&1 &
 
 # The device cert generation needs the current time. Some hardware
 # doesn't have a battery-backed clock
-YEAR=`date +%Y`
+YEAR=$(date +%Y)
 while [ $YEAR == "1970" ]; do
     echo $(date -Ins -u) "It's still 1970; waiting for ntp to advance"
     sleep 10
-    YEAR=`date +%Y`
+    YEAR=$(date +%Y)
 done
 
 # Restart watchdog ledmanager, client, and nim
 if [ -f /var/run/watchdog.pid ]; then
-    kill `cat /var/run/watchdog.pid`
+    kill $(cat /var/run/watchdog.pid)
 fi
 /usr/sbin/watchdog -c $TMPDIR/watchdogclient.conf -F -s &
 
@@ -374,11 +375,11 @@ if [ $SELF_REGISTER = 1 ]; then
     $BINDIR/client -c $CURPART getUuid
     if [ ! -f $CONFIGDIR/hardwaremodel ]; then
 	/opt/zededa/bin/hardwaremodel -c >$CONFIGDIR/hardwaremodel
-	echo $(date -Ins -u) "Created default hardwaremodel" `/opt/zededa/bin/hardwaremodel -c`
+	echo $(date -Ins -u) "Created default hardwaremodel" $(/opt/zededa/bin/hardwaremodel -c)
     fi
     # Make sure we set the dom0 hostname, used by LISP nat traversal, to
     # a unique string. Using the uuid
-    uuid=`cat $CONFIGDIR/uuid`
+    uuid=$(cat $CONFIGDIR/uuid)
     /bin/hostname $uuid
     /bin/hostname >/etc/hostname
     grep -q $uuid /etc/hosts
@@ -397,10 +398,10 @@ else
 	# XXX for upgrade path
 	# XXX do we need a way to override?
 	/opt/zededa/bin/hardwaremodel -c >$CONFIGDIR/hardwaremodel
-	echo $(date -Ins -u) "Created hardwaremodel" `/opt/zededa/bin/hardwaremodel -c`
+	echo $(date -Ins -u) "Created hardwaremodel" $(/opt/zededa/bin/hardwaremodel -c)
     fi
 
-    uuid=`cat $CONFIGDIR/uuid`
+    uuid=$(cat $CONFIGDIR/uuid)
     /bin/hostname $uuid
     /bin/hostname >/etc/hostname
     grep -q $uuid /etc/hosts
@@ -422,12 +423,12 @@ if [ $SELF_REGISTER = 1 ]; then
     # Do we have a file from the build?
     # For now we do not exit if it is missing, but instead we determine
     # a minimal one on the fly
-    model=`$BINDIR/hardwaremodel`
+    model=$($BINDIR/hardwaremodel)
     MODELFILE=${model}.json
     if [ ! -f "$DNCDIR/$MODELFILE" ] ; then
 	echo $(date -Ins -u) "XXX Missing $DNCDIR/$MODELFILE - generate on the fly"
 	echo $(date -Ins -u) "Determining uplink interface"
-	intf=`$BINDIR/find-uplink.sh $TMPDIR/lisp.config.base`
+	intf=$($BINDIR/find-uplink.sh $TMPDIR/lisp.config.base)
 	if [ "$intf" != "" ]; then
 		echo $(date -Ins -u) "Found interface $intf based on route to map servers"
 	else
@@ -445,14 +446,14 @@ cp -p $CONFIGDIR/device.key.pem $LISPDIR/lisp-sig.pem
 
 # Setup default amount of space for images
 # Half of /persist by default! Convert to kbytes
-size=`df -B1 --output=size $PERSISTDIR | tail -1`
-space=`expr $size / 2048`
+size=$(df -B1 --output=size $PERSISTDIR | tail -1)
+space=$(expr $size / 2048)
 mkdir -p /var/tmp/zededa/GlobalDownloadConfig/
 echo {\"MaxSpace\":$space} >/var/tmp/zededa/GlobalDownloadConfig/global.json
 
 # Now run watchdog for all agents
 if [ -f /var/run/watchdog.pid ]; then
-    kill `cat /var/run/watchdog.pid`
+    kill $(cat /var/run/watchdog.pid)
 fi
 /usr/sbin/watchdog -c $TMPDIR/watchdogall.conf -F -s &
 
