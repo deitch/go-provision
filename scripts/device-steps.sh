@@ -45,11 +45,14 @@ if [ $(uname -m) != "x86_64" ]; then
 fi
 
 # XXX try without /dev/watchdog; First disable impact of bios setting
+# XXX restore to using /dev/watchdog if it exists?
 if [ -c /dev/watchdog ]; then
     if [ $USE_HW_WATCHDOG = 0 ]; then
+	echo $(date -Ins -u) "XXX Disabling use of /dev/watchdog"
 	wdctl /dev/watchdog
     fi
 else
+    echo $(date -Ins -u) "Platform has no /dev/watchdog"
     USE_HW_WATCHDOG=0
 fi
 
@@ -94,12 +97,11 @@ for AGENT in $AGENTS; do
     fi
 done
 
-# If watchdog was running we restart it in a way where it will
-# no fail due to killing the agents below.
+# In case watchdog is running we restart it with the base file
 if [ -f /var/run/watchdog.pid ]; then
     kill $(cat /var/run/watchdog.pid)
 fi
-# Always run watchdog(8) in case we have a hardware timer to advance
+# Always run watchdog(8) in case we have a hardware watchdog timer to advance
 /usr/sbin/watchdog -c $TMPDIR/watchdogbase.conf -F -s &
 
 DIRS="$CONFIGDIR $PERSISTDIR $TMPDIR $CONFIGDIR/DevicePortConfig $TMPDIR/DeviceNetworkConfig/ $TMPDIR/AssignableAdapters"
@@ -107,12 +109,12 @@ DIRS="$CONFIGDIR $PERSISTDIR $TMPDIR $CONFIGDIR/DevicePortConfig $TMPDIR/DeviceN
 for d in $DIRS; do
     d1=$(dirname $d)
     if [ ! -d $d1 ]; then
-	# XXX echo $(date -Ins -u) "Create $d1"
+	echo $(date -Ins -u) "Create $d1"
 	mkdir -p $d1
 	chmod 700 $d1
     fi
     if [ ! -d $d ]; then
-	# XXX echo $(date -Ins -u) "Create $d"
+	echo $(date -Ins -u) "Create $d"
 	mkdir -p $d
 	chmod 700 $d
     fi
@@ -233,28 +235,27 @@ fi
 
 mkdir -p $DPCDIR
 
-# Look for a USB stick with a key'ed file
+# Look for a USB stick with a usb.json file
 # If found it replaces any build override file in /config
-# XXX alternative is to use a designated UUID and -t.
-# cgpt find -t a0ee3715-fcdc-4bd8-9f94-23a62bd53c91
+# XXX note that filesystem on USB stick needs to be labeled with DevicePortConfig
 SPECIAL=$(cgpt find -l DevicePortConfig)
 if [ ! -z "$SPECIAL" -a -b "$SPECIAL" ]; then
     echo $(date -Ins -u) "Found USB with DevicePortConfig: $SPECIAL"
-    key="usb"
     mount -t vfat $SPECIAL /mnt
     if [ $? != 0 ]; then
 	echo $(date -Ins -u) "mount $SPECIAL failed: $?"
     else
-	keyfile=/mnt/$key.json
+	keyfile=/mnt/usb.json
 	if [ -f $keyfile ]; then
 	    echo $(date -Ins -u) "Found $keyfile on $SPECIAL"
-	    echo $(date -Ins -u) "Copying from $keyfile to $CONFIGDIR/DevicePortConfig/override.json"
+	    echo $(date -Ins -u) "Copying from $keyfile to $CONFIGDIR/DevicePortConfig/"
 	    cp $keyfile $CONFIGDIR/DevicePortConfig/
 	else
 	    echo $(date -Ins -u) "$keyfile not found on $SPECIAL"
 	fi
     fi
 fi
+
 # Copy any DevicePortConfig from /config
 dir=$CONFIGDIR/DevicePortConfig
 for f in $dir/*.json; do
@@ -281,29 +282,9 @@ echo $(date -Ins -u) "Starting waitforaddr"
 $BINDIR/waitforaddr -c $CURPART
 
 # We need to try our best to setup time *before* we generate the certifiacte.
-# Otherwise it may have start date in the future
-# XXX which NTP approach are we using?
+# Otherwise the cert may have start date in the future or in 1970
 echo $(date -Ins -u) "Check for NTP config"
-if [ -f $CONFIGDIR/ntp-server ]; then
-    echo -n "Using "
-    cat $CONFIGDIR/ntp-server
-    # Ubuntu has /usr/bin/timedatectl; ditto Debian
-    # ntpdate pool.ntp.org
-    # Not installed on Ubuntu
-    #
-    if [ -f /usr/bin/ntpdate ]; then
-	/usr/bin/ntpdate $(cat $CONFIGDIR/ntp-server)
-    elif [ -f /usr/bin/timedatectl ]; then
-	echo $(date -Ins -u) "NTP might already be running. Check"
-	/usr/bin/timedatectl status
-    else
-	echo $(date -Ins -u) "NTP not installed. Giving up"
-	exit 1
-    fi
-elif [ -f /usr/bin/ntpdate ]; then
-    /usr/bin/ntpdate pool.ntp.org
-elif [ -f /usr/sbin/ntpd ]; then
-    # last ditch attemp to sync up our clock
+if [ -f /usr/sbin/ntpd ]; then
     # '-p' means peer in some distros; pidfile in others
     /usr/sbin/ntpd -q -n -p pool.ntp.org
     # Run ntpd to keep it in sync.
@@ -353,11 +334,11 @@ if [ ! -f $CONFIGDIR/server -o ! -f $CONFIGDIR/root-certificate.pem ]; then
     exit 0
 fi
 
-# XXX should we harden/remove any Linux network services at this point?
-
 if [ $SELF_REGISTER = 1 ]; then
     rm -f $TMPDIR/zedrouterconfig.json
 
+    # Persistently remember we haven't finished selfRegister in case the device
+    # is powered off
     touch $CONFIGDIR/self-register-failed
     echo $(date -Ins -u) "Self-registering our device certificate"
     if [ ! \( -f $CONFIGDIR/onboard.cert.pem -a -f $CONFIGDIR/onboard.key.pem \) ]; then
@@ -391,12 +372,11 @@ if [ $SELF_REGISTER = 1 ]; then
 	echo $(date -Ins -u) "Found $uuid in /etc/hosts"
     fi
 else
-    echo $(date -Ins -u) "XXX until cloud keeps state across upgrades redo getUuid"
+    echo $(date -Ins -u) "Get UUID in in case device was deleted and recreated with same device cert"
     echo $(date -Ins -u) "Starting client getUuid"
     $BINDIR/client -c $CURPART getUuid
     if [ ! -f $CONFIGDIR/hardwaremodel ]; then
-	# XXX for upgrade path
-	# XXX do we need a way to override?
+	echo $(date -Ins -u) "XXX /config/hardwaremodel missing; creating"
 	/opt/zededa/bin/hardwaremodel -c >$CONFIGDIR/hardwaremodel
 	echo $(date -Ins -u) "Created hardwaremodel" $(/opt/zededa/bin/hardwaremodel -c)
     fi
@@ -417,28 +397,6 @@ fi
 if [ ! -d $LISPDIR ]; then
     echo $(date -Ins -u) "Missing $LISPDIR directory. Giving up"
     exit 1
-fi
-
-if [ $SELF_REGISTER = 1 ]; then
-    # Do we have a file from the build?
-    # For now we do not exit if it is missing, but instead we determine
-    # a minimal one on the fly
-    model=$($BINDIR/hardwaremodel)
-    MODELFILE=${model}.json
-    if [ ! -f "$DNCDIR/$MODELFILE" ] ; then
-	echo $(date -Ins -u) "XXX Missing $DNCDIR/$MODELFILE - generate on the fly"
-	echo $(date -Ins -u) "Determining uplink interface"
-	intf=$($BINDIR/find-uplink.sh $TMPDIR/lisp.config.base)
-	if [ "$intf" != "" ]; then
-		echo $(date -Ins -u) "Found interface $intf based on route to map servers"
-	else
-		echo $(date -Ins -u) "NOT Found interface based on route to map servers. Giving up"
-		exit 1
-	fi
-	cat <<EOF >"$DNCDIR/$MODELFILE"
-{"Uplink":["$intf"], "FreeUplinks":["$intf"]}
-EOF
-    fi
 fi
 
 # Need a key for device-to-device map-requests
