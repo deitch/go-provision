@@ -33,11 +33,9 @@ APPS1 = logmanager ledmanager downloader verifier client zedrouter domainmgr ide
 
 SCRIPTS = \
 	device-steps.sh \
-	find-uplink.sh \
 	generate-device.sh \
 	generate-onboard.sh \
 	generate-self-signed.sh \
-	run-ocsp.sh \
 	watchdog-report.sh
 
 .PHONY: all clean vendor
