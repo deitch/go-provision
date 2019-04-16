@@ -130,7 +130,7 @@ echo "$(date -Ins -u) Configuration from factory/install:"
 (cd $CONFIGDIR || return; ls -l)
 echo
 
-if ! P3=$(zboot partdev P3) && [ -n "$P3" ]; then
+if P3=$(zboot partdev P3) && [ -n "$P3" ]; then
     echo "$(date -Ins -u) Using $P3 for $PERSISTDIR"
     if ! fsck.ext3 -y "$P3"; then
 	echo "$(date -Ins -u) mkfs on $P3 for $PERSISTDIR"
