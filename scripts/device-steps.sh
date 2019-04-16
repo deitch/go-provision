@@ -151,7 +151,7 @@ ls -lt $PERSISTDIR/downloads/*/*
 echo
 
 # Copy any GlobalConfig from /config
-dir="$CONFIGDIR"/GlobalConfig
+dir=$CONFIGDIR/GlobalConfig
 for f in "$dir"/*.json; do
     if [ "$f" = "$dir/*.json" ]; then
 	break
@@ -248,7 +248,7 @@ if [ -n "$SPECIAL" ] && [ -b "$SPECIAL" ]; then
 	if [ -f $keyfile ]; then
 	    echo "$(date -Ins -u) Found $keyfile on $SPECIAL"
 	    echo "$(date -Ins -u) Copying from $keyfile to $CONFIGDIR/DevicePortConfig/"
-	    cp $keyfile "$CONFIGDIR"/DevicePortConfig/
+	    cp $keyfile $CONFIGDIR/DevicePortConfig/
 	else
 	    echo "$(date -Ins -u) $keyfile not found on $SPECIAL"
 	fi
@@ -311,11 +311,11 @@ if [ -f /var/run/watchdog.pid ]; then
 fi
 /usr/sbin/watchdog -c $TMPDIR/watchdogclient.conf -F -s &
 
-if ! [ -f "$CONFIGDIR"/device.cert.pem ] || ! [ -f "$CONFIGDIR"/device.key.pem ]; then
+if ! [ -f $CONFIGDIR/device.cert.pem ] || ! [ -f $CONFIGDIR/device.key.pem ]; then
     echo "$(date -Ins -u) Generating a device key pair and self-signed cert (using TPM/TEE if available)"
-    $BINDIR/generate-device.sh "$CONFIGDIR"/device
+    $BINDIR/generate-device.sh $CONFIGDIR/device
     SELF_REGISTER=1
-elif [ -f "$CONFIGDIR"/self-register-failed ]; then
+elif [ -f $CONFIGDIR/self-register-failed ]; then
     echo "$(date -Ins -u) self-register failed/killed/rebooted"
     if $BINDIR/client -c $CURPART -r 5 getUuid; then
 	echo "$(date -Ins -u) self-register failed/killed/rebooted; getUuid fail; redoing self-register"
@@ -327,7 +327,7 @@ else
     echo "$(date -Ins -u) Using existing device key pair and self-signed cert"
     SELF_REGISTER=0
 fi
-if [ ! -f "$CONFIGDIR"/server ] || [ ! -f "$CONFIGDIR"/root-certificate.pem ]; then
+if [ ! -f $CONFIGDIR/server ] || [ ! -f $CONFIGDIR/root-certificate.pem ]; then
     echo "$(date -Ins -u) No server or root-certificate to connect to. Done"
     exit 0
 fi
@@ -337,9 +337,9 @@ if [ $SELF_REGISTER = 1 ]; then
 
     # Persistently remember we haven't finished selfRegister in case the device
     # is powered off
-    touch "$CONFIGDIR"/self-register-failed
+    touch $CONFIGDIR/self-register-failed
     echo "$(date -Ins -u) Self-registering our device certificate"
-    if ! [ -f "$CONFIGDIR"/onboard.cert.pem ] || ! [ -f "$CONFIGDIR"/onboard.key.pem ]; then
+    if ! [ -f $CONFIGDIR/onboard.cert.pem ] || ! [ -f $CONFIGDIR/onboard.key.pem ]; then
 	echo "$(date -Ins -u) Missing onboarding certificate. Giving up"
 	exit 1
     fi
@@ -348,16 +348,16 @@ if [ $SELF_REGISTER = 1 ]; then
 	echo "$(date -Ins -u) client selfRegister failed with $?"
 	exit 1
     fi
-    rm -f "$CONFIGDIR"/self-register-failed
+    rm -f $CONFIGDIR/self-register-failed
     echo "$(date -Ins -u) Starting client getUuid"
     $BINDIR/client -c $CURPART getUuid
-    if [ ! -f "$CONFIGDIR"/hardwaremodel ]; then
-	/opt/zededa/bin/hardwaremodel -c >"$CONFIGDIR"/hardwaremodel
+    if [ ! -f $CONFIGDIR/hardwaremodel ]; then
+	/opt/zededa/bin/hardwaremodel -c >$CONFIGDIR/hardwaremodel
 	echo "$(date -Ins -u) Created default hardwaremodel $(/opt/zededa/bin/hardwaremodel -c)"
     fi
     # Make sure we set the dom0 hostname, used by LISP nat traversal, to
     # a unique string. Using the uuid
-    uuid=$(cat "$CONFIGDIR"/uuid)
+    uuid=$(cat $CONFIGDIR/uuid)
     /bin/hostname "$uuid"
     /bin/hostname >/etc/hostname
     if ! grep -q "$uuid" /etc/hosts; then
@@ -371,13 +371,13 @@ else
     echo "$(date -Ins -u) Get UUID in in case device was deleted and recreated with same device cert"
     echo "$(date -Ins -u) Starting client getUuid"
     $BINDIR/client -c $CURPART getUuid
-    if [ ! -f "$CONFIGDIR"/hardwaremodel ]; then
+    if [ ! -f $CONFIGDIR/hardwaremodel ]; then
 	echo "$(date -Ins -u) XXX /config/hardwaremodel missing; creating"
-	/opt/zededa/bin/hardwaremodel -c >"$CONFIGDIR"/hardwaremodel
+	/opt/zededa/bin/hardwaremodel -c >$CONFIGDIR/hardwaremodel
 	echo "$(date -Ins -u) Created hardwaremodel $(/opt/zededa/bin/hardwaremodel -c)"
     fi
 
-    uuid=$(cat "$CONFIGDIR"/uuid)
+    uuid=$(cat $CONFIGDIR/uuid)
     /bin/hostname "$uuid"
     /bin/hostname >/etc/hostname
 
@@ -396,7 +396,7 @@ if [ ! -d $LISPDIR ]; then
 fi
 
 # Need a key for device-to-device map-requests
-cp -p "$CONFIGDIR"/device.key.pem $LISPDIR/lisp-sig.pem
+cp -p $CONFIGDIR/device.key.pem $LISPDIR/lisp-sig.pem
 
 # Setup default amount of space for images
 # Half of /persist by default! Convert to kbytes
